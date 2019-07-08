@@ -13,7 +13,7 @@ make
 docker build -f ./Dockerfile -t "hylandsoftware/trebuchet:${VERSION%$'\r'}" .
 
 if [ "${TRAVIS_PULL_REQUEST}" = "false" ] && [ "${TRAVIS_BRANCH}" = "master" ]; then
-    docker login -u "${DOCKER_USERNAME}" -p "${DOCKER_PASSWORD}"
+    echo "${DOCKER_PASSWORD}" | docker login --username "${DOCKER_USER}" --password-stdin
 
     docker tag "hylandsoftware/trebuchet:${VERSION%$'\r'}" "hylandsoftware/trebuchet:latest"
     docker push "hylandsoftware/trebuchet:${VERSION%$'\r'}"
