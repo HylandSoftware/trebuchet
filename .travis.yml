@@ -1,0 +1,15 @@
+sudo: required
+
+language: go
+
+go:
+  - "1.12"
+
+env:
+- GO111MODULE=on
+
+services:
+  - docker
+
+script:
+- ./travis.sh
