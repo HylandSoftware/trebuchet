@@ -4,6 +4,11 @@ set -euo pipefail
 export VERSION=ci
 export FULL_VERSION=ci-full
 if [ "${TRAVIS_PULL_REQUEST}" = "false" ]; then
+    # GitVersion fix: https://github.com/GitTools/GitVersion/issues/1671#issuecomment-508198452
+    git remote set-branches --add origin master
+    git checkout --track origin/master
+    git checkout "${TRAVIS_BRANCH}"
+
     VERSION=$(docker run -it --rm -v "$(pwd):/repo" gittools/gitversion:5.0.0-linux-debian-9-netcoreapp2.2 /repo /showvariable NuGetVersionV2 | tee /dev/tty)
     FULL_VERSION=$(docker run -it --rm -v "$(pwd):/repo" gittools/gitversion:5.0.0-linux-debian-9-netcoreapp2.2 /repo /showvariable InformationalVersion | tee /dev/tty)
 fi
