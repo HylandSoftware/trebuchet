@@ -11,5 +11,8 @@ env:
 services:
   - docker
 
+install:
+- git fetch origin +refs/heads/*:refs/remotes/origin/*
+
 script:
 - ./travis.sh
