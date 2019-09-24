@@ -2,7 +2,7 @@ module github.com/hylandsoftware/trebuchet
 
 go 1.12
 
-replace github.com/docker/docker v1.13.1 => github.com/docker/engine v0.0.0-20180816081446-200b524eff60
+replace github.com/docker/docker v1.13.1 => github.com/docker/engine v0.0.0-20190327083406-200b524eff60
 
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78 // indirect
