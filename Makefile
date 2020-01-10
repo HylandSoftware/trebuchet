@@ -15,10 +15,10 @@ all: build-prepare lint test build
 
 build-prepare:
 	mkdir -p $(DIST)
-	go get -u github.com/golangci/golangci-lint/cmd/golangci-lint
-	go get -u github.com/mattn/goveralls
+	GO111MODULE=off go get -u github.com/golangci/golangci-lint/cmd/golangci-lint
+	GO111MODULE=off go get -u github.com/mattn/goveralls
 
-lint: 
+lint:
 	$(GOLANGCI_LINT_RUN) ./...
 
 test:
