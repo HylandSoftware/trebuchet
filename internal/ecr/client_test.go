@@ -46,68 +46,6 @@ func (m *mockECRClient) GetAuthorizationToken() (*RegistryAuth, error) {
 	return args.Get(0).(*RegistryAuth), args.Error(1)
 }
 
-func TestECRClient_ValidateRegionForECR_ValidRegion(t *testing.T) {
-	testCases := []struct {
-		region  string
-		returns error
-	}{
-		{
-			region:  "us-east-1",
-			returns: nil,
-		},
-		{
-			region:  "us-west-2",
-			returns: nil,
-		},
-		{
-			region:  "US-EAST-1",
-			returns: nil,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.region, func(t *testing.T) {
-			result := validateRegionForECR(tc.region, "ecr")
-
-			require.Equal(t, tc.returns, result)
-			require.NoError(t, result)
-		})
-	}
-}
-
-func TestECRClient_ValidationRegionForECR_InvalidRegion(t *testing.T) {
-	testCases := []struct {
-		region  string
-		service string
-		returns error
-	}{
-		{
-			region:  "cn-north-1",
-			service: "ecr",
-			returns: ErrInvalidRegionForService,
-		},
-		{
-			region:  "macho man randy savage",
-			service: "ecr",
-			returns: ErrInvalidRegionForService,
-		},
-		{
-			region:  "",
-			service: "ecr",
-			returns: ErrInvalidRegionForService,
-		},
-		{
-			region:  "us-east-1",
-			service: "api.ecr",
-			returns: ErrServiceNotFound,
-		},
-	}
-
-	for _, tc := range testCases {
-		require.Equal(t, tc.returns, validateRegionForECR(tc.region, tc.service))
-	}
-}
-
 func TestEcrClient_GetClientConfig_AssumeRoleUpdatesNewCredentials(t *testing.T) {
 	m := &mockRoleAssumer{}
 	dummyCredProvider := &sts.CredentialsProvider{}
@@ -187,7 +125,7 @@ func TestEcrClient_GetClientConfig_ReturnsErrorOnBadService(t *testing.T) {
 		}, nil
 	})
 
-	require.Equal(t, ErrInvalidRegionForService, err)
+	require.Error(t, err)
 }
 
 func TestEcrClient_NewClient_ReturnsValidClient(t *testing.T) {
@@ -199,7 +137,7 @@ func TestEcrClient_NewClient_ReturnsValidClient(t *testing.T) {
 func TestEcrClient_NewClient_ReturnsErrorForBadConfig(t *testing.T) {
 	_, err := NewClient("macho-man-randy-savage", "")
 
-	require.Equal(t, ErrInvalidRegionForService, err)
+	require.Error(t, err)
 }
 
 func TestEcrClient_ExtractToken_ReturnsValidToken(t *testing.T) {
