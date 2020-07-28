@@ -15,7 +15,7 @@ all: build-prepare lint test build
 
 build-prepare:
 	mkdir -p $(DIST)
-	GO111MODULE=off go get -u github.com/golangci/golangci-lint/cmd/golangci-lint
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(GOPATH)/bin v1.27.0
 	GO111MODULE=off go get -u github.com/mattn/goveralls
 
 lint:
@@ -23,7 +23,7 @@ lint:
 
 test:
 	$(GOTEST) -v -cover -coverprofile=./coverage.out ./...
-	$(GOVERALLS) -coverprofile="./coverage.out" -service=travis-ci -repotoken $(COVERALLS_TOKEN)
+	$(GOVERALLS) -coverprofile="./coverage.out" -service=travis-ci
 
 build: build-unix build-windows
 

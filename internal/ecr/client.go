@@ -1,6 +1,7 @@
 package ecr
 
 import (
+	"context"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -19,9 +20,6 @@ import (
 var (
 	ErrNoTokenOrProxyEndpoint  = errors.New("no authorization token or proxy endpoint obtained when requesting token")
 	ErrNoCredentials           = errors.New("no credentials provided")
-	ErrServiceNotFound         = errors.New("service not found")
-	ErrInvalidRegionForService = errors.New(
-		"invalid region for service, visit https://aws.amazon.com/about-aws/global-infrastructure/regional-product-services/ for valid regions for ECR")
 )
 
 type Client interface {
@@ -38,7 +36,7 @@ type RegistryAuth struct {
 }
 
 type ecrClient struct {
-	*ecr.ECR
+	*ecr.Client
 	log *log.Entry
 }
 
@@ -49,7 +47,7 @@ func NewClient(region string, assumeRole string) (Client, error) {
 	}
 
 	return &ecrClient{
-		ECR: ecr.New(config),
+		Client: ecr.New(config),
 		log: log.WithField("component", "ecr"),
 	}, nil
 }
@@ -59,7 +57,7 @@ type configLoaderFunc func(configs ...external.Config) (aws.Config, error)
 func (c *ecrClient) RepositoryExists(repository string) (bool, error) {
 	_, err := c.DescribeRepositoriesRequest(&ecr.DescribeRepositoriesInput{
 		RepositoryNames: []string{repository},
-	}).Send()
+	}).Send(context.Background())
 
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == ecr.ErrCodeRepositoryNotFoundException {
@@ -76,7 +74,7 @@ func (c *ecrClient) RepositoryExists(repository string) (bool, error) {
 func (c *ecrClient) CreateRepository(repository string) error {
 	_, err := c.CreateRepositoryRequest(&ecr.CreateRepositoryInput{
 		RepositoryName: &repository,
-	}).Send()
+	}).Send(context.Background())
 
 	if err != nil {
 		c.log.WithField("repository", repository).Info("Error in creating repository")
@@ -90,7 +88,7 @@ func (c *ecrClient) CreateRepository(repository string) error {
 func (c *ecrClient) GetRepositoryURI(repository string) (string, error) {
 	result, err := c.DescribeRepositoriesRequest(&ecr.DescribeRepositoriesInput{
 		RepositoryNames: []string{repository},
-	}).Send()
+	}).Send(context.Background())
 
 	if err != nil {
 		return "", err
@@ -102,7 +100,7 @@ func (c *ecrClient) GetRepositoryURI(repository string) (string, error) {
 
 func (c *ecrClient) GetAuthorizationToken() (*RegistryAuth, error) {
 	c.log.Debug("Getting authorization token")
-	result, err := c.GetAuthorizationTokenRequest(&ecr.GetAuthorizationTokenInput{}).Send()
+	result, err := c.GetAuthorizationTokenRequest(&ecr.GetAuthorizationTokenInput{}).Send(context.Background())
 
 	if err != nil {
 		return nil, err
@@ -188,31 +186,13 @@ func getClientConfig(region string, assumeRole string, assumer sts.RoleAssumer, 
 	}
 
 	// Ensure the set region is valid and exists for the ECR service
-	if err := validateRegionForECR(cfg.Region, "ecr"); err != nil {
+	resolver := endpoints.NewDefaultResolver()
+	resolver.StrictMatching = true
+	if _, err = resolver.ResolveEndpoint("api.ecr", cfg.Region); err != nil {
 		return aws.Config{}, err
 	}
 
 	return cfg, nil
 }
 
-func validateRegionForECR(region string, service string) error {
-	regions, ok := endpoints.AwsPartition().Services()[service]
 
-	if !ok {
-		log.WithField("service", service).Debug("Could not find service")
-		return ErrServiceNotFound
-	}
-
-	region = strings.ToLower(region)
-	_, endpointExists := regions.Endpoints()[region]
-	if !endpointExists {
-		log.WithFields(log.Fields{
-			"region":  region,
-			"service": service,
-		}).Error("Could not find region for service")
-		return ErrInvalidRegionForService
-	}
-
-	log.WithField("region", region).Debug("Found specified region")
-	return nil
-}

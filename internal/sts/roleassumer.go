@@ -1,6 +1,7 @@
 package sts
 
 import (
+	"context"
 	"errors"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -25,7 +26,7 @@ func (r *stsRoleAssumer) AssumeRole(config aws.Config, assumeRole string) (*Cred
 		RoleArn:         aws.String(assumeRole),
 		RoleSessionName: aws.String("TrebuchetAssumedRole"),
 	}
-	out, err := stsClient.AssumeRoleRequest(input).Send()
+	out, err := stsClient.AssumeRoleRequest(input).Send(context.Background())
 
 	if err != nil {
 		r.log.WithField("role", assumeRole).Info("Error attempting to assume role")
@@ -46,7 +47,7 @@ type CredentialsProvider struct {
 	*sts.Credentials
 }
 
-func (s CredentialsProvider) Retrieve() (aws.Credentials, error) {
+func (s CredentialsProvider) Retrieve(ctx context.Context) (aws.Credentials, error) {
 	if s.Credentials == nil {
 		return aws.Credentials{}, ErrNoSTSCredentialsFound
 	}

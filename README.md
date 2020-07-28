@@ -272,7 +272,7 @@ pipeline {
 
 ## Building
 Requirements:
-- Go version `1.11+` or `vgo`, for Go Modules support
+- Go version `1.13+` or `vgo`, for Go Modules support
 
 ``` bash
 # linux
