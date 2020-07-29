@@ -23,6 +23,7 @@ var ErrImageNotFound = errors.New("image not found on Docker host")
 type Client interface {
 	ImageExists(image string) error
 	ImagePush(image string, auth ecr.RegistryAuth) error
+	ImagePull(image string, auth ecr.RegistryAuth) error
 	ImageTag(source string, target string) error
 	ImageRemove(image string) error
 }
@@ -85,6 +86,26 @@ func (c *dockerClient) ImagePush(image string, auth ecr.RegistryAuth) error {
 	return jsonmessage.DisplayJSONMessagesStream(output, os.Stdout, 0, false, nil)
 }
 
+// ImagePull pulls a Docker image from ECR to the Docker host
+func (c *dockerClient) ImagePull(image string, auth ecr.RegistryAuth) error {
+	token, err := encodeRegistryAuthentication(auth)
+	if err != nil {
+		return err
+	}
+
+	c.log.WithField("image", image).Info("Pulling image")
+	output, err := c.Client.ImagePull(context.Background(), image, types.ImagePullOptions{
+		RegistryAuth: token,
+	})
+	if err != nil {
+		return err
+	}
+
+	defer output.Close()
+
+	return jsonmessage.DisplayJSONMessagesStream(output, os.Stdout, 0, false, nil)
+}
+
 // ImageTag tags a Docker image on the Docker host with a new image name provided as the 'target' argument
 func (c *dockerClient) ImageTag(source string, target string) error {
 	c.log.WithFields(log.Fields{
@@ -128,6 +149,34 @@ func TagAndPush(dockerClient Client, image string, repositoryURI string, auth ec
 
 	if err = dockerClient.ImagePush(fullRepositoryURI, auth); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+// Pull will pull the image from ECR to the Docker host using the 'repositoryURI' and the tag from the 'image'. The
+// 'stripTag' parameter will optionally tag the pulled image as the simpler 'image', and remove the full ECR image
+// tag from the Docker host.
+func Pull(dockerClient Client, image string, repositoryURI string, stripTag bool, auth ecr.RegistryAuth) (err error) {
+	fullRepositoryURI := getFullECRImageReference(repositoryURI, image)
+
+	if err = dockerClient.ImagePull(fullRepositoryURI, auth); err != nil {
+		return err
+	}
+
+	if stripTag {
+		if err = dockerClient.ImageTag(fullRepositoryURI, image); err != nil {
+			return err
+		}
+
+		defer func() {
+			removeErr := dockerClient.ImageRemove(fullRepositoryURI)
+			if err != nil {
+				err = fmt.Errorf("%s: %s", err, removeErr)
+			} else {
+				err = removeErr
+			}
+		}()
 	}
 
 	return nil
