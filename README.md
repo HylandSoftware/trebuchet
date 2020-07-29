@@ -46,6 +46,39 @@ Global Flags:
   -v, --verbose         Enables verbose logging.
 ```
 
+`pull`:
+```
+Pulls a Docker image from ECR
+
+Strip:
+	Strip is a boolean flag. When set, it removes all ECR-specific elements from the image name. For example, 
+	112233445566.dkr.ecr.us-east-1.amazonaws.com/hello-world:latest would be pulled as hello-world:latest.
+
+Region:
+	Region is required to be set as a flag, as an AWS environment variable (AWS_DEFAULT_REGION), or in the AWS config.
+
+Amazon Resource Name (ARN):
+	Passing in a valid ARN allows trebuchet to assume a role to perform actions within AWS. A typical use-case for this
+	would be a service account to use in a software pipeline to push images to ECR.
+
+Usage:
+  treb pull NAME[:TAG] [flags]
+
+Exmaples:
+treb pull -v --strip --region us-east-1 helloworld:1.2.3
+treb pull -v -s --as arn:aws:iam::112233445566:role/PushToECR --region us-west-1 hello/world:3.4-beta
+treb pull helloworld:latest
+
+Flags:
+  -h, --help   help for repository
+  -s, --strip  strip the image name of ECR-specific elements
+
+Global Flags:
+  -a, --as string       Amazon Resource Name (ARN) specifying the role to be assumed.
+  -r, --region string   AWS region to be used. Supported as flag, AWS_DEFAULT_REGION environment variable or AWS Config File.
+  -v, --verbose         Enables verbose logging.
+```
+
 `repository`: 
 ```
 Get the full URL of a repository in Amazon ECR. The repository command will lookup the repository passed in
@@ -111,7 +144,8 @@ to create the repository if it doesn't exist and push images into ECR:
                 "ecr:UploadLayerPart",
                 "ecr:InitiateLayerUpload",
                 "ecr:BatchCheckLayerAvailability",
-                "ecr:PutImage"
+                "ecr:PutImage",
+                "ecr:GetDownloadUrlForLayer"
             ],
             "Resource": "*"
         }
