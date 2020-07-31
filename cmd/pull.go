@@ -31,7 +31,7 @@ Amazon Resource Name (ARN):
 }
 
 func pull(cmd *cobra.Command, args []string) {
-	ecrClient, err := ecr.NewClient(viper.GetString("region"), viper.GetString("as"))
+	ecrClient, err := ecr.NewClient(viper.GetString("region"), viper.GetString("as"), viper.GetString("profile"))
 	if err != nil {
 		log.WithError(err).Fatal("Error in creation of ECR client")
 	}

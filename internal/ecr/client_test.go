@@ -3,6 +3,7 @@ package ecr
 import (
 	"errors"
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -51,7 +52,7 @@ func TestEcrClient_GetClientConfig_AssumeRoleUpdatesNewCredentials(t *testing.T)
 	dummyCredProvider := &sts.CredentialsProvider{}
 	m.On("AssumeRole", mock.Anything, "testing").Return(dummyCredProvider, nil)
 
-	result, err := getClientConfig("us-east-1", "testing", m, func(configs ...external.Config) (aws.Config, error) {
+	result, err := getClientConfig("us-east-1", "testing", "", m, func(configs ...external.Config) (aws.Config, error) {
 		return aws.Config{
 			Region:      "us-east-1",
 			Credentials: dummyCredProvider,
@@ -67,7 +68,7 @@ func TestEcrClient_GetClientConfig_ReturnsErrorOnBadAssumeRole(t *testing.T) {
 	dummyCredProvider := &sts.CredentialsProvider{}
 	m.On("AssumeRole", mock.Anything, "testing").Return(dummyCredProvider, errors.New("some error"))
 
-	_, err := getClientConfig("us-east-1", "testing", m, func(configs ...external.Config) (aws.Config, error) {
+	_, err := getClientConfig("us-east-1", "testing", "", m, func(configs ...external.Config) (aws.Config, error) {
 		return aws.Config{
 			Region:      "us-east-1",
 			Credentials: dummyCredProvider,
@@ -81,7 +82,7 @@ func TestEcrClient_GetClientConfig_RegionFlagUpdatesConfigRegion(t *testing.T) {
 	m := &mockRoleAssumer{}
 	dummyCredProvider := &sts.CredentialsProvider{}
 
-	result, err := getClientConfig("us-east-2", "", m, func(configs ...external.Config) (aws.Config, error) {
+	result, err := getClientConfig("us-east-2", "", "", m, func(configs ...external.Config) (aws.Config, error) {
 		return aws.Config{
 			Region:      "us-east-1",
 			Credentials: dummyCredProvider,
@@ -95,7 +96,7 @@ func TestEcrClient_GetClientConfig_RegionFlagUpdatesConfigRegion(t *testing.T) {
 func TestEcrClient_GetClientConfig_ReturnsErrOnBadConfigLoad(t *testing.T) {
 	m := &mockRoleAssumer{}
 
-	_, err := getClientConfig("us-east-1", "", m, func(configs ...external.Config) (aws.Config, error) {
+	_, err := getClientConfig("us-east-1", "", "", m, func(configs ...external.Config) (aws.Config, error) {
 		return aws.Config{}, errors.New("some error")
 	})
 
@@ -105,7 +106,7 @@ func TestEcrClient_GetClientConfig_ReturnsErrOnBadConfigLoad(t *testing.T) {
 func TestEcrClient_GetClientConfig_ReturnsErrNoCredentials(t *testing.T) {
 	m := &mockRoleAssumer{}
 
-	_, err := getClientConfig("us-east-1", "", m, func(configs ...external.Config) (aws.Config, error) {
+	_, err := getClientConfig("us-east-1", "", "", m, func(configs ...external.Config) (aws.Config, error) {
 		return aws.Config{
 			Credentials: nil,
 		}, nil
@@ -118,7 +119,7 @@ func TestEcrClient_GetClientConfig_ReturnsErrorOnBadService(t *testing.T) {
 	m := &mockRoleAssumer{}
 	dummyCredProvider := &sts.CredentialsProvider{}
 
-	_, err := getClientConfig("", "", m, func(configs ...external.Config) (aws.Config, error) {
+	_, err := getClientConfig("", "", "", m, func(configs ...external.Config) (aws.Config, error) {
 		return aws.Config{
 			Region:      "macho-man-randy-savage",
 			Credentials: dummyCredProvider,
@@ -128,14 +129,51 @@ func TestEcrClient_GetClientConfig_ReturnsErrorOnBadService(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestEcrClient_GetClientConfig_ValidProfile(t *testing.T) {
+	path := createProfile("tmp-profile", "[my-profile]\naws_access_key_id = myaccesskey\naws_secret_access_key = mysecretaccesskey")
+	defer os.Remove(path)
+	defer os.Unsetenv("AWS_CONFIG_FILE")
+	m := &mockRoleAssumer{}
+
+	result, err := getClientConfig("us-east-1", "", "my-profile", m, external.LoadDefaultAWSConfig)
+
+	sharedConfigSource := false
+	for _, source := range result.ConfigSources {
+		s := external.SharedConfig{}
+		if s, sharedConfigSource = source.(external.SharedConfig); sharedConfigSource {
+			require.Equal(t, "my-profile", s.Profile,)
+			break
+		}
+	}
+	require.True(t, sharedConfigSource)
+	require.NoError(t, err)
+}
+
+func TestEcrClient_GetClientConfig_BadProfile(t *testing.T) {
+	m := &mockRoleAssumer{}
+
+	result, err := getClientConfig("us-east-1", "", "not-a-profile", m, external.LoadDefaultAWSConfig)
+
+	sharedConfigSource := false
+	for _, source := range result.ConfigSources {
+		s := external.SharedConfig{}
+		if s, sharedConfigSource = source.(external.SharedConfig); sharedConfigSource {
+			require.Equal(t, "", s.Profile)
+			break
+		}
+	}
+	require.True(t, sharedConfigSource)
+	require.NoError(t, err)
+}
+
 func TestEcrClient_NewClient_ReturnsValidClient(t *testing.T) {
-	_, err := NewClient("us-east-1", "")
+	_, err := NewClient("us-east-1", "", "")
 
 	assert.NoError(t, err)
 }
 
 func TestEcrClient_NewClient_ReturnsErrorForBadConfig(t *testing.T) {
-	_, err := NewClient("macho-man-randy-savage", "")
+	_, err := NewClient("macho-man-randy-savage", "", "")
 
 	require.Error(t, err)
 }
@@ -215,4 +253,27 @@ func TestEcrClient_SetupRepository_ReturnsErrorOnGetRepositoryURIError(t *testin
 
 	require.EqualError(t, err, "error")
 	require.Empty(t, result)
+}
+
+func createProfile(localpath string, profile string) string {
+	pwd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	path:= fmt.Sprintf("%s/%s", pwd, localpath)
+	f, err := os.Create(path)
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+	_, err = f.WriteString(profile)
+	if err != nil {
+		panic(err)
+	}
+	err = f.Sync()
+	if err != nil {
+		panic(err)
+	}
+	os.Setenv("AWS_CONFIG_FILE", path)
+	return path
 }

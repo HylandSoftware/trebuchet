@@ -49,6 +49,8 @@ func init() {
 		"Amazon Resource Name (ARN) specifying the role to be assumed.")
 	flags.StringP("region", "r", "",
 		"AWS region to be used. Supported as flag, AWS_DEFAULT_REGION environment variable or AWS Config File.")
+	flags.StringP("profile", "p", "",
+		"AWS Shared Credentials profile to be used.")
 	_ = viper.BindPFlags(flags)
 
 	cobra.OnInitialize(initLogrus)
