@@ -19,6 +19,9 @@ Pushes a Docker image into ECR
 Region:
         Region is required to be set as a flag, as an AWS environment variable (AWS_DEFAULT_REGION), or in the AWS config.
 
+Profile:
+        Profile may be set as a flag or an AWS environment variable. 
+
 Amazon Resource Name (ARN):
         Passing in a valid ARN allows trebuchet to assume a role to perform actions within AWS. A typical use-case for this
         would be a service account to use in a software pipeline to push images to ECR.
@@ -34,7 +37,7 @@ Aliases:
 
 Examples:
 treb push -v --region us-east-1 helloworld:1.2.3
-treb launch -v --as arn:aws:iam::112233445566:role/PushToECR --region us-west-1 hello/world:3.4-beta
+treb launch -v --as arn:aws:iam::112233445566:role/PushToECR --profile my-profile --region us-west-1 hello/world:3.4-beta
 treb push helloworld:latest
 
 Flags:
@@ -42,6 +45,7 @@ Flags:
 
 Global Flags:
   -a, --as string       Amazon Resource Name (ARN) specifying the role to be assumed.
+  -p, --profile string  AWS named profile to use.
   -r, --region string   AWS region to be used. Supported as flag, AWS_DEFAULT_REGION environment variable or AWS Config File.
   -v, --verbose         Enables verbose logging.
 ```
@@ -57,6 +61,9 @@ Strip:
 Region:
 	Region is required to be set as a flag, as an AWS environment variable (AWS_DEFAULT_REGION), or in the AWS config.
 
+Profile:
+        Profile may be set as a flag or an AWS environment variable. 
+
 Amazon Resource Name (ARN):
 	Passing in a valid ARN allows trebuchet to assume a role to perform actions within AWS. A typical use-case for this
 	would be a service account to use in a software pipeline to push images to ECR.
@@ -66,7 +73,7 @@ Usage:
 
 Exmaples:
 treb pull -v --strip --region us-east-1 helloworld:1.2.3
-treb pull -v -s --as arn:aws:iam::112233445566:role/PushToECR --region us-west-1 hello/world:3.4-beta
+treb pull -v -s --as arn:aws:iam::112233445566:role/PushToECR --profile my-profile --region us-west-1 hello/world:3.4-beta
 treb pull helloworld:latest
 
 Flags:
@@ -75,6 +82,7 @@ Flags:
 
 Global Flags:
   -a, --as string       Amazon Resource Name (ARN) specifying the role to be assumed.
+  -p, --profile string  AWS named profile to use.
   -r, --region string   AWS region to be used. Supported as flag, AWS_DEFAULT_REGION environment variable or AWS Config File.
   -v, --verbose         Enables verbose logging.
 ```
@@ -86,6 +94,9 @@ to see if it exists in Amazon ECR and return it to be used for deployment or ref
 
 Region:
         Region is required to be set as a flag, as an AWS environment variable (AWS_DEFAULT_REGION), or in the AWS config.
+
+Profile:
+        Profile may be set as a flag or an AWS environment variable. 
 
 Amazon Resource Name (ARN):
         Passing in a valid ARN allows trebuchet to assume a role to perform actions within AWS. A typical use-case for this
@@ -99,7 +110,7 @@ Aliases:
 
 Examples:
 treb repository helloworld --region us-east-1
-treb repo some/project/helloworld --region us-west-2 --as arn:aws:iam::112233445566
+treb repo some/project/helloworld --region us-west-2 --profile my-profile --as arn:aws:iam::112233445566
 treb repo my/repository
 
 Flags:
@@ -107,6 +118,7 @@ Flags:
 
 Global Flags:
   -a, --as string       Amazon Resource Name (ARN) specifying the role to be assumed.
+  -p, --profile string  AWS named profile to use.
   -r, --region string   AWS region to be used. Supported as flag, AWS_DEFAULT_REGION environment variable or AWS Config File.
   -v, --verbose         Enables verbose logging.
 ```
@@ -115,7 +127,7 @@ Global Flags:
 `Trebuchet` uses the default AWS credentials chain and supports flags for specifying region and/or a role to assume.
 Precedence of credentials and configuration that are loaded in `Trebuchet`:
 1. Flags passed to Trebuchet
-   - Example: `treb push --as arn:aws:iam::112233445566:role/JenkinsPushToECR --region us-east-1 [some-image]`
+   - Example: `treb push --as arn:aws:iam::112233445566:role/JenkinsPushToECR --profile my-profile --region us-east-1 [some-image]`
 2. Environment variables. For more information, reference the [Environment Variables](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html)
    section of the AWS Command Line documentation.
    - Examples: `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` for authentication or `AWS_DEFAULT_REGION` to specify region
@@ -214,8 +226,8 @@ pipeline {
 
 #### Using an AWS Credentials File
 In this example, using an AWS credential file, we can use profiles from the file to set region, access keys, and roles to assume.
-In the Jenkinsfile, we set [2 AWS environment variables](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html): `AWS_PROFILE` (the profile we want to use) and `AWS_SHARED_CREDENTIALS_FILE` to tell
-Trebuchet where to find the credentials file as it not in the default `~/.aws/credentials` location.
+In the Jenkinsfile, we set [an AWS environment variable](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html): `AWS_SHARED_CREDENTIALS_FILE` to tell
+Trebuchet where to find the credentials file as it not in the default `~/.aws/credentials` location. We then use the `--profile` flag to specify the profile to use.
 
 Credentials file stored in Jenkins as a secret file with id `aws-credentials-file`:
 
@@ -252,13 +264,12 @@ pipeline {
         }
         stage('Push Docker Image to ECR') {
             environment {
-                AWS_PROFILE = 'some-profile'
                 AWS_SHARED_CREDENTIALS_FILE = credentials('aws-credentials-file')
             }
         
             steps {
                 container('trebuchet') {
-                    sh 'treb fling hello-world:1.2.3'
+                    sh 'treb fling hello-world:1.2.3' --profile some-profile
                 }
             }
         }

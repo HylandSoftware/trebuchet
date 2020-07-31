@@ -33,7 +33,7 @@ Amazon Resource Name (ARN):
 func repository(cmd *cobra.Command, args []string) {
 	log.SetLevel(log.ErrorLevel)
 
-	ecrClient, err := ecr.NewClient(viper.GetString("region"), viper.GetString("as"))
+	ecrClient, err := ecr.NewClient(viper.GetString("region"), viper.GetString("as"), viper.GetString("profile"))
 	if err != nil {
 		log.WithError(err).Fatal("Error in creation of ECR client")
 	}

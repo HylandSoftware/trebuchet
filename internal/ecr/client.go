@@ -40,8 +40,8 @@ type ecrClient struct {
 	log *log.Entry
 }
 
-func NewClient(region string, assumeRole string) (Client, error) {
-	config, err := getClientConfig(region, assumeRole, sts.NewRoleAssumer(), external.LoadDefaultAWSConfig)
+func NewClient(region string, assumeRole string, profile string) (Client, error) {
+	config, err := getClientConfig(region, assumeRole, profile, sts.NewRoleAssumer(), external.LoadDefaultAWSConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -159,10 +159,18 @@ func extractToken(token string, proxyEndpoint string) (*RegistryAuth, error) {
 	}, nil
 }
 
-func getClientConfig(region string, assumeRole string, assumer sts.RoleAssumer, configLoader configLoaderFunc) (aws.Config, error) {
-	cfg, err := configLoader()
-	if err != nil {
-		return aws.Config{}, err
+func getClientConfig(region string, assumeRole string, profile string, assumer sts.RoleAssumer, configLoader configLoaderFunc) (cfg aws.Config, err error) {
+	if profile == "" {
+		cfg, err = configLoader()
+		if err != nil {
+			return aws.Config{}, err
+		}
+	} else {
+		log.WithField("profile", profile).Debug("Explicitly setting profile")
+		cfg, err = configLoader(external.WithSharedConfigProfile(profile))
+		if err != nil {
+			return aws.Config{}, err
+		}
 	}
 
 	if cfg.Credentials == nil {
